@@ -271,12 +271,12 @@ const SERVICES = [
     title: "AI Receptionist",
     tagline: "24/7 Automated Qualification",
     description:
-      "Never lose a lead again. Our AI receptionist engages, qualifies, and routes prospects around the clock — in English and French — so your team only speaks to decision-makers.",
+      "Never lose a lead again. Our AI receptionist engages and qualifies prospects around the clock — with a voice so natural, they won't know it's not human.",
     bullets: [
-      "Instant multi-channel response",
-      "Intelligent lead scoring & routing",
-      "Seamless CRM integration",
-      "Bilingual EN/FR support",
+      "Fully bilingual — fluent in French & English",
+      "Ultra-realistic, conversational human voice",
+      "24/7 automated appointment booking",
+      "Never misses a call, zero hold times",
     ],
     gradient: "from-violet-500/10 to-purple-500/5",
     accentColor: "text-violet-400",
@@ -285,14 +285,14 @@ const SERVICES = [
   {
     icon: TrendingUp,
     title: "Performance Lead Gen",
-    tagline: "Predictable Pipeline Growth",
+    tagline: "Done-For-You Pipeline Growth",
     description:
-      "We build and operate paid acquisition systems that generate high-intent leads on a performance basis. You pay for results — nothing else.",
+      "We handle lead generation end-to-end. You don't touch the tech, the systems, or the outreach. We send you warm, high-intent leads — all you have to do is close them.",
     bullets: [
-      "Meta & Google performance campaigns",
-      "Cold outbound at scale",
-      "A/B tested offer positioning",
-      "Weekly pipeline reporting",
+      "Fully done-for-you — zero client involvement",
+      "High-intent, pre-qualified warm leads",
+      "End-to-end system ownership",
+      "Weekly pipeline reporting & optimization",
     ],
     gradient: "from-[#c9a84c]/10 to-amber-500/5",
     accentColor: "text-[#c9a84c]",
