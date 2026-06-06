@@ -285,14 +285,14 @@ const SERVICES = [
   {
     icon: TrendingUp,
     title: "Performance Lead Gen",
-    tagline: "Done-For-You Pipeline Growth",
+    tagline: "Pure Client Acquisition",
     description:
-      "We handle lead generation end-to-end. You don't touch the tech, the systems, or the outreach. We send you warm, high-intent leads — all you have to do is close them.",
+      "We engineer a dedicated, multi-channel acquisition system that funnels high-intent prospects directly into your pipeline. You don't have to manage campaigns or touch the tech—we deliver the qualified calls.",
     bullets: [
-      "Fully done-for-you — zero client involvement",
-      "High-intent, pre-qualified warm leads",
-      "End-to-end system ownership",
-      "Weekly pipeline reporting & optimization",
+      "Multi-channel automated outreach systems",
+      '100% "Done-For-You" pipeline management',
+      "Pre-qualified, high-ticket prospect targeting",
+      "Direct-to-calendar exclusive appointments",
     ],
     gradient: "from-[#c9a84c]/10 to-amber-500/5",
     accentColor: "text-[#c9a84c]",
@@ -301,15 +301,15 @@ const SERVICES = [
   },
   {
     icon: Target,
-    title: "Revenue Strategy",
-    tagline: "Full-Funnel Revenue Engineering",
+    title: "AI Consulting & Integration",
+    tagline: "Intelligent Business Automation",
     description:
-      "From offer design to closing mechanics, we architect the entire revenue system — ensuring every touchpoint converts at its highest potential.",
+      "We don't just give advice; we build and deploy bespoke AI infrastructure into your business. We automate the heavy lifting so you can scale your operations without scaling your headcount.",
     bullets: [
-      "Offer & positioning audit",
-      "Sales process optimization",
-      "Conversion rate engineering",
-      "90-day revenue roadmap",
+      "Custom AI infrastructure tailored to your exact operations",
+      "Seamless CRM and internal systems integration",
+      "Autonomous lead-routing and data enrichment",
+      "Scalable automation to eliminate manual overhead",
     ],
     gradient: "from-cyan-500/10 to-blue-500/5",
     accentColor: "text-cyan-400",
