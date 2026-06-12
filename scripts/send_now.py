@@ -200,10 +200,7 @@ Barbanera Solutions | Montreal, QC
 # ---------------------------------------------------------------------------
 
 WARMUP_TARGETS = [
-    # Add 2–3 email addresses you personally control (other Gmail, Outlook, etc.)
-    # These will receive a short plain email you should open AND reply to.
-    # Example: "farahfadel06@gmail.com"
-    # Leave this list empty to skip warm-up.
+    "fondel185@gmail.com",
 ]
 
 WARMUP_SUBJECTS = [
