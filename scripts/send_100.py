@@ -12,11 +12,8 @@ Run:
     python send_100.py --app-password "erqv rpeb rvvv pwli"
 """
 
-import argparse, random, smtplib, ssl, time
+import argparse, random, time
 from dataclasses import dataclass
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime
 
 FROM_EMAIL = "barbanera.solutions@gmail.com"
 FROM_NAME  = "Ahmad Fadel | Barbanera Solutions"
@@ -33,6 +30,37 @@ class Lead:
     email: str
     subject: str
     body: str
+
+# ── SENDGRID HTTPS SENDER (works from any server — no SMTP needed) ────────────
+
+def send_via_sendgrid(api_key: str, lead: "Lead") -> bool:
+    import json, urllib.request, urllib.error
+    payload = {
+        "personalizations": [{"to": [{"email": lead.email, "name": lead.name}]}],
+        "from": {"email": FROM_EMAIL, "name": FROM_NAME},
+        "reply_to": {"email": FROM_EMAIL},
+        "subject": lead.subject,
+        "content": [{"type": "text/plain", "value": lead.body}],
+    }
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status in (200, 202)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"  ✗ SendGrid HTTP {e.code}: {body[:200]}")
+        return False
+    except Exception as e:
+        print(f"  ✗ {e}")
+        return False
 
 # ── TRACK TEMPLATES ──────────────────────────────────────────────────────────
 
@@ -293,83 +321,57 @@ def make_leads():
 
 LEADS = make_leads()
 
-# ── SMTP ─────────────────────────────────────────────────────────────────────
-
-def connect(pw):
-    ctx = ssl.create_default_context()
-    s = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx)
-    s.login(FROM_EMAIL, pw)
-    return s
-
-def send(smtp, lead, dry):
-    if dry:
-        print(f"\n{'='*65}\nTO      : {lead.email}\nFROM    : {FROM_EMAIL}\nSUBJECT : {lead.subject}\n{'-'*65}\n{lead.body}")
-        return True
-    msg = MIMEMultipart("alternative")
-    msg["From"]     = f"{FROM_NAME} <{FROM_EMAIL}>"
-    msg["To"]       = f"{lead.name} <{lead.email}>"
-    msg["Subject"]  = lead.subject
-    msg["Reply-To"] = FROM_EMAIL
-    msg.attach(MIMEText(lead.body, "plain"))
-    try:
-        smtp.sendmail(FROM_EMAIL, lead.email, msg.as_string())
-        return True
-    except Exception as e:
-        print(f"  ✗ {e}")
-        return False
-
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 
-def run(pw, dry, limit):
+def run(api_key, dry, limit):
     print(f"\nBarbanera Solutions — Outreach Engine")
-    print(f"Mode    : {'DRY RUN' if dry else 'LIVE'}")
+    print(f"Mode    : {'DRY RUN' if dry else 'LIVE (SendGrid HTTPS)'}")
+    print(f"From    : {FROM_EMAIL}")
     print(f"Leads   : {len(LEADS)} loaded")
     print(f"Limit   : {limit if limit else 'none'}\n")
-
-    smtp = None
-    if not dry:
-        print("Connecting to Gmail...")
-        try:
-            smtp = connect(pw)
-            print("✓ Connected.\n")
-        except smtplib.SMTPAuthenticationError:
-            print("\n✗ Auth failed. Check your App Password at myaccount.google.com/apppasswords")
-            return
 
     sent = errors = 0
     batch = LEADS[:limit] if limit else LEADS
 
     for i, lead in enumerate(batch, 1):
         print(f"[{i}/{len(batch)}] {lead.name} | {lead.city} | {lead.email}")
-        ok = send(smtp, lead, dry)
+        if dry:
+            print(f"\n{'='*65}\nTO      : {lead.email}\nSUBJECT : {lead.subject}\n{'-'*65}\n{lead.body}\n")
+            sent += 1
+            continue
+
+        ok = send_via_sendgrid(api_key, lead)
         if ok:
             sent += 1
-            if not dry: print(f"  ✓ Sent")
+            print(f"  ✓ Sent — {lead.subject[:55]}")
         else:
             errors += 1
 
         if i < len(batch):
             d = random.randint(MIN_DELAY, MAX_DELAY)
-            if not dry:
-                print(f"  Waiting {d}s...\n")
-                time.sleep(d)
-
-    if smtp: smtp.quit()
+            print(f"  Waiting {d}s...\n")
+            time.sleep(d)
 
     print(f"\n{'='*55}")
-    print(f"Done. {sent} {'queued' if dry else 'sent'} | {errors} errors")
-    if not dry:
-        print(f"\nSet a reminder in 4 days to send follow-ups.")
-    print(f"Calendly: {CAL}")
+    print(f"Done. {sent} {'queued (dry run)' if dry else 'SENT'} | {errors} errors")
+    if not dry and sent > 0:
+        print(f"\nAll {sent} emails delivered via SendGrid.")
+        print(f"Set a calendar reminder 4 days from now to send follow-ups.")
+    print(f"\nCalendly: {CAL}")
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--app-password", default="")
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--sendgrid-key", default="", help="SendGrid API key (SG.xxx)")
+    p.add_argument("--dry-run", action="store_true", help="Preview without sending")
+    p.add_argument("--limit", type=int, default=0, help="Max emails to send")
     a = p.parse_args()
 
-    if not a.dry_run and not a.app_password:
-        raise SystemExit("ERROR: --app-password required. Get one at myaccount.google.com/apppasswords")
+    if not a.dry_run and not a.sendgrid_key:
+        raise SystemExit(
+            "\nERROR: SendGrid API key required.\n"
+            "1. Sign up FREE at sendgrid.com (no card needed)\n"
+            "2. Settings → API Keys → Create Key → Full Access\n"
+            "3. Re-run: python send_100.py --sendgrid-key SG.xxxx\n"
+        )
 
-    run(a.app_password, a.dry_run, a.limit)
+    run(a.sendgrid_key, a.dry_run, a.limit)
