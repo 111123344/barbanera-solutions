@@ -41,10 +41,11 @@ export default function SpeakerPage() {
   const [recording, setRecording] = useState(false)
   const [copied, setCopied] = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
-  const [translations, setTranslations] = useState<Translations>({ en: '', ar: '', fr: '' })
+  const [history, setHistory] = useState<Translations[]>([])
   const [interimText, setInterimText] = useState('')
 
   const recogRef = useRef<SpeechRecognition | null>(null)
+  const isActiveRef = useRef(false)
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
 
   const listenUrl = typeof window !== 'undefined'
@@ -73,7 +74,7 @@ export default function SpeakerPage() {
       body: JSON.stringify({ text, sourceLang: lang }),
     })
     const t: Translations = await res.json()
-    setTranslations(t)
+    setHistory(prev => [...prev.slice(-19), t])
 
     if (channelRef.current) {
       channelRef.current.send({
@@ -110,20 +111,28 @@ export default function SpeakerPage() {
       setInterimText(interim)
     }
 
-    recog.onerror = () => setRecording(false)
+    recog.onerror = (e: Event & { error?: string }) => {
+      // Restart on recoverable errors, stop on fatal ones
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        isActiveRef.current = false
+        setRecording(false)
+      }
+    }
     recog.onend = () => {
-      // Auto-restart if still recording
-      if (recogRef.current === recog && recording) {
+      // isActiveRef is always current — no stale closure problem
+      if (isActiveRef.current && recogRef.current === recog) {
         try { recog.start() } catch { /* already started */ }
       }
     }
 
+    isActiveRef.current = true
     recog.start()
     recogRef.current = recog
     setRecording(true)
   }
 
   function stopRecording() {
+    isActiveRef.current = false
     recogRef.current?.stop()
     recogRef.current = null
     setRecording(false)
@@ -202,23 +211,21 @@ export default function SpeakerPage() {
         </div>
 
         {/* Live translation preview */}
-        {(translations.en || translations.ar || translations.fr) && (
+        {history.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs text-zinc-500 uppercase tracking-wider">Live Translation</p>
-            {displayLangs.map(l => {
-              const text = translations[l.code as keyof Translations]
-              if (!text) return null
-              return (
-                <div
-                  key={l.code}
-                  className="rounded-xl bg-zinc-900 border border-zinc-800 p-4"
-                  dir={l.code === 'ar' ? 'rtl' : 'ltr'}
-                >
-                  <p className="text-xs text-[#c9a84c] font-semibold mb-1">{l.label}</p>
-                  <p className="text-white text-sm leading-relaxed">{text}</p>
-                </div>
-              )
-            })}
+            {displayLangs.map(l => (
+              <div
+                key={l.code}
+                className="rounded-xl bg-zinc-900 border border-zinc-800 p-4 max-h-40 overflow-y-auto"
+                dir={l.code === 'ar' ? 'rtl' : 'ltr'}
+              >
+                <p className="text-xs text-[#c9a84c] font-semibold mb-2">{l.label}</p>
+                <p className="text-white text-sm leading-relaxed">
+                  {history.map(t => t[l.code as keyof Translations]).filter(Boolean).join(' ')}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 
