@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Mic, MicOff, Copy, Check, Users } from 'lucide-react'
 import QRCode from 'react-qr-code'
 import { supabase } from '@/lib/supabase'
 
 type Translations = { en: string; ar: string; fr: string }
-type SpeechRecognitionEvent = { results: SpeechRecognitionResultList; resultIndex: number }
 
 declare global {
   interface Window {
@@ -22,8 +21,8 @@ interface SpeechRecognition extends EventTarget {
   lang: string
   start(): void
   stop(): void
-  onresult: ((event: SpeechRecognitionEvent) => void) | null
-  onerror: ((event: Event) => void) | null
+  onresult: ((event: { results: SpeechRecognitionResultList; resultIndex: number }) => void) | null
+  onerror: ((event: Event & { error?: string }) => void) | null
   onend: (() => void) | null
 }
 
@@ -41,87 +40,100 @@ export default function SpeakerPage() {
   const [recording, setRecording] = useState(false)
   const [copied, setCopied] = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
-  const [history, setHistory] = useState<Translations[]>([])
+  const [preview, setPreview] = useState<Translations[]>([])
   const [interimText, setInterimText] = useState('')
 
   const recogRef = useRef<SpeechRecognition | null>(null)
   const isActiveRef = useRef(false)
+  const sourceLangRef = useRef(sourceLang)
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
+  const seqRef = useRef(0)
+  // Sequential queue: each translation waits for the previous to finish, preserving order
+  const queueRef = useRef<Promise<void>>(Promise.resolve())
+
+  useEffect(() => { sourceLangRef.current = sourceLang }, [sourceLang])
 
   const listenUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/translate/listen/${sessionId}`
     : ''
 
-  // Setup Supabase channel
+  // Supabase channel
   useEffect(() => {
     if (!supabase) return
     const ch = supabase.channel(`session:${sessionId}`, {
       config: { presence: { key: 'speaker' } },
     })
     ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState()
-      setListenerCount(Object.keys(state).length)
+      setListenerCount(Object.keys(ch.presenceState()).length)
     })
     ch.subscribe()
     channelRef.current = ch
     return () => { ch.unsubscribe() }
   }, [sessionId])
 
-  const broadcast = useCallback(async (text: string, lang: string) => {
-    const res = await fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, sourceLang: lang }),
+  function enqueueTranslation(text: string, lang: string) {
+    const seq = ++seqRef.current
+    queueRef.current = queueRef.current.then(async () => {
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, sourceLang: lang }),
+        })
+        const t: Translations = await res.json()
+        setPreview(prev => [...prev.slice(-9), t])
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'text',
+          payload: { ...t, seq },
+        })
+      } catch {
+        // silent — don't break the queue on error
+      }
     })
-    const t: Translations = await res.json()
-    setHistory(prev => [...prev.slice(-19), t])
-
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'text',
-        payload: t,
-      })
-    }
-  }, [])
+  }
 
   function startRecording() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
+      alert('Speech recognition requires Chrome or Edge.')
       return
     }
 
+    const lang = sourceLangRef.current
     const recog = new SR()
     recog.continuous = true
     recog.interimResults = true
-    recog.lang = LANGS.find(l => l.code === sourceLang)?.speechCode ?? 'en-US'
+    recog.lang = LANGS.find(l => l.code === lang)?.speechCode ?? 'en-US'
 
     recog.onresult = (e) => {
       let interim = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const result = e.results[i]
-        if (result.isFinal) {
-          broadcast(result[0].transcript.trim(), sourceLang)
-          setInterimText('')
+        const r = e.results[i]
+        if (r.isFinal) {
+          const text = r[0].transcript.trim()
+          if (text) {
+            enqueueTranslation(text, sourceLangRef.current)
+            setInterimText('')
+          }
         } else {
-          interim += result[0].transcript
+          interim += r[0].transcript
         }
       }
       setInterimText(interim)
     }
 
-    recog.onerror = (e: Event & { error?: string }) => {
-      // Restart on recoverable errors, stop on fatal ones
+    recog.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         isActiveRef.current = false
         setRecording(false)
       }
+      // other errors (network, aborted) let onend handle restart
     }
+
     recog.onend = () => {
-      // isActiveRef is always current — no stale closure problem
       if (isActiveRef.current && recogRef.current === recog) {
-        try { recog.start() } catch { /* already started */ }
+        try { recog.start() } catch { /* already starting */ }
       }
     }
 
@@ -197,8 +209,7 @@ export default function SpeakerPage() {
           >
             {recording
               ? <MicOff className="h-10 w-10 text-white" />
-              : <Mic className="h-10 w-10 text-black" />
-            }
+              : <Mic className="h-10 w-10 text-black" />}
           </button>
           <p className="mt-3 text-sm text-zinc-400">
             {recording ? 'Tap to stop' : 'Tap to start speaking'}
@@ -210,19 +221,19 @@ export default function SpeakerPage() {
           )}
         </div>
 
-        {/* Live translation preview */}
-        {history.length > 0 && (
+        {/* Live preview — same layout as listener */}
+        {preview.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider">Live Translation</p>
+            <p className="text-xs text-zinc-500 uppercase tracking-wider">Listener Preview</p>
             {displayLangs.map(l => (
               <div
                 key={l.code}
-                className="rounded-xl bg-zinc-900 border border-zinc-800 p-4 max-h-40 overflow-y-auto"
+                className="rounded-xl bg-zinc-900 border border-zinc-800 p-4 max-h-36 overflow-y-auto"
                 dir={l.code === 'ar' ? 'rtl' : 'ltr'}
               >
                 <p className="text-xs text-[#c9a84c] font-semibold mb-2">{l.label}</p>
                 <p className="text-white text-sm leading-relaxed">
-                  {history.map(t => t[l.code as keyof Translations]).filter(Boolean).join(' ')}
+                  {preview.map(t => t[l.code as keyof Translations]).filter(Boolean).join(' ')}
                 </p>
               </div>
             ))}
@@ -255,13 +266,6 @@ export default function SpeakerPage() {
           </div>
         </div>
 
-        {!supabase && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-400">
-            <strong>Setup required:</strong> Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment variables to enable
-            real-time sync to listeners.
-          </div>
-        )}
       </div>
     </div>
   )
