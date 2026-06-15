@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Mic, MicOff, Copy, Check, Users } from 'lucide-react'
 import QRCode from 'react-qr-code'
@@ -20,7 +20,6 @@ interface SpeechRecognition extends EventTarget {
   interimResults: boolean
   lang: string
   start(): void
-  stop(): void
   abort(): void
   onresult: ((e: { results: SpeechRecognitionResultList; resultIndex: number }) => void) | null
   onerror: ((e: Event & { error?: string }) => void) | null
@@ -32,27 +31,32 @@ const LANGS = [
   { code: 'ar', label: 'العربية', speechCode: 'ar-SA' },
   { code: 'fr', label: 'Français', speechCode: 'fr-FR' },
 ]
-
-// Multiple Arabic dialect codes to try in order
-const AR_CODES = ['ar-SA', 'ar-EG', 'ar-LB', 'ar-AE', 'ar']
+const AR_CODES = ['ar-SA', 'ar-EG', 'ar-AE', 'ar-LB']
 
 export default function SpeakerPage() {
   const params = useParams()
   const sessionId = params.id as string
 
-  const [sourceLang, setSourceLang]   = useState('en')
-  const [recording, setRecording]     = useState(false)
-  const [copied, setCopied]           = useState(false)
+  const [sourceLang, setSourceLang]       = useState('en')
+  const [recording, setRecording]         = useState(false)
+  const [copied, setCopied]               = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
-  const [interimText, setInterimText] = useState('')
-  const [sentCount, setSentCount]     = useState(0)
+  const [interimText, setInterimText]     = useState('')
+  const [sentCount, setSentCount]         = useState(0)
 
-  const isActiveRef      = useRef(false)
-  const sourceLangRef    = useRef(sourceLang)
-  const channelRef       = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
-  const seqRef           = useRef(0)
-  const lastTextRef      = useRef('')
-  const arCodeIdxRef     = useRef(0)   // cycles through AR_CODES on failure
+  // ── All mutable state in refs so closures never go stale ──
+  const isActiveRef     = useRef(false)
+  const sourceLangRef   = useRef(sourceLang)
+  const channelRef      = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
+  const seqRef          = useRef(0)
+  const lastTextRef     = useRef('')
+  const recogRef        = useRef<SpeechRecognition | null>(null)
+  const arCodeIdxRef    = useRef(0)
+  const heartbeatRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // ── startSession stored in a ref so onend always calls the latest version ──
+  // (avoids every stale-closure issue by definition)
+  const startSessionRef = useRef<() => void>(() => {})
 
   useEffect(() => { sourceLangRef.current = sourceLang }, [sourceLang])
 
@@ -60,6 +64,7 @@ export default function SpeakerPage() {
     ? `${window.location.origin}/translate/listen/${sessionId}`
     : ''
 
+  // ── Supabase presence ──
   useEffect(() => {
     if (!supabase) return
     const ch = supabase.channel(`session:${sessionId}`, {
@@ -73,38 +78,20 @@ export default function SpeakerPage() {
     return () => { ch.unsubscribe() }
   }, [sessionId])
 
-  const sendTranslation = useCallback((text: string, lang: string) => {
-    const seq = ++seqRef.current
-    setSentCount(n => n + 1)
-    ;(async () => {
-      try {
-        const ctrl = new AbortController()
-        const t = setTimeout(() => ctrl.abort(), 8000)
-        const res = await fetch('/api/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, sourceLang: lang }),
-          signal: ctrl.signal,
-        })
-        clearTimeout(t)
-        if (!res.ok) return
-        const data: Translations = await res.json()
-        channelRef.current?.send({ type: 'broadcast', event: 'text', payload: { ...data, seq } })
-      } catch { /* timeout / network error — skip, don't block */ }
-    })()
-  }, [])
-
-  const startSession = useCallback(() => {
+  // ── Keep startSession ref fresh on every render ──
+  // All inner variables access refs, so this is safe and always up-to-date.
+  startSessionRef.current = () => {
     if (!isActiveRef.current) return
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) return
 
-    const lang = sourceLangRef.current
+    const lang       = sourceLangRef.current
     const speechCode = lang === 'ar'
       ? AR_CODES[arCodeIdxRef.current % AR_CODES.length]
-      : (LANGS.find(l => l.code === lang)?.speechCode ?? 'en-US')
+      : LANGS.find(l => l.code === lang)?.speechCode ?? 'en-US'
 
-    const recog = new SR()
+    const recog          = new SR()
     recog.continuous     = true
     recog.interimResults = true
     recog.lang           = speechCode
@@ -117,13 +104,36 @@ export default function SpeakerPage() {
           const text = r[0].transcript.trim()
           if (text && text !== lastTextRef.current) {
             lastTextRef.current = text
-            sendTranslation(text, sourceLangRef.current)
             setInterimText('')
-            // Also broadcast raw text instantly so listeners see something immediately
+
+            // Broadcast raw text instantly so listener sees it NOW
             channelRef.current?.send({
               type: 'broadcast', event: 'interim',
-              payload: { text, lang: sourceLangRef.current }
+              payload: { text, lang: sourceLangRef.current },
             })
+
+            // Fire translation in parallel — no queue, no blocking
+            const seq = ++seqRef.current
+            setSentCount(n => n + 1)
+            ;(async () => {
+              try {
+                const ctrl  = new AbortController()
+                const timer = setTimeout(() => ctrl.abort(), 8000)
+                const res   = await fetch('/api/translate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text, sourceLang: sourceLangRef.current }),
+                  signal: ctrl.signal,
+                })
+                clearTimeout(timer)
+                if (!res.ok) return
+                const t: Translations = await res.json()
+                channelRef.current?.send({
+                  type: 'broadcast', event: 'text',
+                  payload: { ...t, seq },
+                })
+              } catch { /* timeout / network blip — skip this chunk */ }
+            })()
           }
         } else {
           interim += r[0].transcript
@@ -131,10 +141,9 @@ export default function SpeakerPage() {
       }
       if (interim) {
         setInterimText(interim)
-        // Stream interim words live to listeners
         channelRef.current?.send({
           type: 'broadcast', event: 'interim',
-          payload: { text: interim, lang: sourceLangRef.current }
+          payload: { text: interim, lang: sourceLangRef.current },
         })
       }
     }
@@ -147,23 +156,25 @@ export default function SpeakerPage() {
         return
       }
       if (e.error === 'language-not-supported' && lang === 'ar') {
-        // Try next Arabic dialect code
         arCodeIdxRef.current++
       }
-      // All other errors: let onend handle restart
+      // All other errors → let onend handle restart
     }
 
     recog.onend = () => {
-      // Restart immediately — no delay — fresh instance every time
-      if (isActiveRef.current) startSession()
+      recogRef.current = null
+      if (!isActiveRef.current) return
+      // Short delay so Chrome finishes cleanup before we start a new instance
+      setTimeout(() => startSessionRef.current(), 80)
     }
 
     try {
       recog.start()
+      recogRef.current = recog
     } catch {
-      if (isActiveRef.current) setTimeout(startSession, 150)
+      if (isActiveRef.current) setTimeout(() => startSessionRef.current(), 200)
     }
-  }, [sendTranslation])
+  }
 
   function startRecording() {
     if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
@@ -173,11 +184,24 @@ export default function SpeakerPage() {
     arCodeIdxRef.current = 0
     isActiveRef.current  = true
     setRecording(true)
-    startSession()
+    startSessionRef.current()
+
+    // ── Heartbeat: proactively restart every 55s to beat Chrome's ~60s hard timeout ──
+    heartbeatRef.current = setInterval(() => {
+      if (!isActiveRef.current) return
+      // Abort current instance → triggers onend → startSession restarts automatically
+      recogRef.current?.abort()
+    }, 55_000)
   }
 
   function stopRecording() {
     isActiveRef.current = false
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current)
+      heartbeatRef.current = null
+    }
+    recogRef.current?.abort()
+    recogRef.current = null
     setRecording(false)
     setInterimText('')
   }
@@ -196,7 +220,7 @@ export default function SpeakerPage() {
           <h1 className="text-lg font-black">Live Session</h1>
           <div className="flex items-center gap-2">
             {recording && sentCount > 0 && (
-              <span className="text-xs text-zinc-500">{sentCount} translated</span>
+              <span className="text-xs text-zinc-500">{sentCount} sent</span>
             )}
             {supabase && (
               <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 border border-zinc-800 px-3 py-1.5">
@@ -225,7 +249,7 @@ export default function SpeakerPage() {
 
         {sourceLang === 'ar' && (
           <p className="text-xs text-zinc-600 text-center -mt-2">
-            Arabic recognition works best with clear, standard pronunciation (فصحى)
+            Works best with clear standard Arabic (فصحى)
           </p>
         )}
 
@@ -245,7 +269,7 @@ export default function SpeakerPage() {
           <p className="mt-4 text-sm font-medium text-zinc-400">
             {recording
               ? <span className="flex items-center gap-2">
-                  <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse inline-block" />
                   Live — tap to stop
                 </span>
               : 'Tap to start speaking'}
