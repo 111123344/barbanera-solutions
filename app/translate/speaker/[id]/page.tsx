@@ -48,6 +48,7 @@ export default function SpeakerPage() {
   const sourceLangRef = useRef(sourceLang)
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
   const seqRef = useRef(0)
+  const lastTextRef = useRef('')
   // Sequential queue: each translation waits for the previous to finish, preserving order
   const queueRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -112,7 +113,10 @@ export default function SpeakerPage() {
         const r = e.results[i]
         if (r.isFinal) {
           const text = r[0].transcript.trim()
-          if (text) {
+          // Skip: empty, single characters, or exact duplicate of last sent
+          const words = text.split(/\s+/).filter(Boolean).length
+          if (text && words >= 2 && text !== lastTextRef.current) {
+            lastTextRef.current = text
             enqueueTranslation(text, sourceLangRef.current)
             setInterimText('')
           }

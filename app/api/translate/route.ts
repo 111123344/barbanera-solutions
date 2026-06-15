@@ -7,30 +7,34 @@ const LANG_PAIRS: Record<string, string[]> = {
 }
 
 async function translateText(text: string, from: string, to: string): Promise<string> {
-  const email = process.env.MYMEMORY_EMAIL ?? ''
-  const emailParam = email ? `&de=${encodeURIComponent(email)}` : ''
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}${emailParam}`
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`
+  const res = await fetch(url)
   const data = await res.json()
-  return data.responseData?.translatedText ?? text
+  // data[0] is an array of segments: [[translated, original], ...]
+  const translation = (data[0] as Array<[string]>)
+    .map(segment => segment[0])
+    .join('')
+    .trim()
+  return translation || text
 }
 
 export async function POST(request: NextRequest) {
   const { text, sourceLang } = await request.json() as { text: string; sourceLang: string }
 
-  if (!text?.trim()) {
+  const trimmed = text?.trim()
+  if (!trimmed) {
     return Response.json({ en: '', ar: '', fr: '' })
   }
 
   const targets = LANG_PAIRS[sourceLang] ?? ['ar', 'fr']
-  const results: Record<string, string> = { [sourceLang]: text }
+  const results: Record<string, string> = { [sourceLang]: trimmed }
 
   await Promise.all(
     targets.map(async (target) => {
       try {
-        results[target] = await translateText(text, sourceLang, target)
+        results[target] = await translateText(trimmed, sourceLang, target)
       } catch {
-        results[target] = text
+        results[target] = trimmed
       }
     })
   )
