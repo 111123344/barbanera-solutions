@@ -22,35 +22,37 @@ interface SpeechRecognition extends EventTarget {
   start(): void
   stop(): void
   abort(): void
-  onresult: ((event: { results: SpeechRecognitionResultList; resultIndex: number }) => void) | null
-  onerror: ((event: Event & { error?: string }) => void) | null
+  onresult: ((e: { results: SpeechRecognitionResultList; resultIndex: number }) => void) | null
+  onerror: ((e: Event & { error?: string }) => void) | null
   onend: (() => void) | null
 }
 
 const LANGS = [
-  { code: 'en', label: 'English', speechCode: 'en-US' },
+  { code: 'en', label: 'English',  speechCode: 'en-US' },
   { code: 'ar', label: 'العربية', speechCode: 'ar-SA' },
   { code: 'fr', label: 'Français', speechCode: 'fr-FR' },
 ]
+
+// Multiple Arabic dialect codes to try in order
+const AR_CODES = ['ar-SA', 'ar-EG', 'ar-LB', 'ar-AE', 'ar']
 
 export default function SpeakerPage() {
   const params = useParams()
   const sessionId = params.id as string
 
-  const [sourceLang, setSourceLang] = useState('en')
-  const [recording, setRecording] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [sourceLang, setSourceLang]   = useState('en')
+  const [recording, setRecording]     = useState(false)
+  const [copied, setCopied]           = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
   const [interimText, setInterimText] = useState('')
-  const [sentCount, setSentCount] = useState(0)
+  const [sentCount, setSentCount]     = useState(0)
 
-  // All mutable state lives in refs so closures never go stale
-  const isActiveRef = useRef(false)
-  const sourceLangRef = useRef(sourceLang)
-  const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
-  const seqRef = useRef(0)
-  const lastTextRef = useRef('')
-  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isActiveRef      = useRef(false)
+  const sourceLangRef    = useRef(sourceLang)
+  const channelRef       = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null)
+  const seqRef           = useRef(0)
+  const lastTextRef      = useRef('')
+  const arCodeIdxRef     = useRef(0)   // cycles through AR_CODES on failure
 
   useEffect(() => { sourceLangRef.current = sourceLang }, [sourceLang])
 
@@ -71,39 +73,41 @@ export default function SpeakerPage() {
     return () => { ch.unsubscribe() }
   }, [sessionId])
 
-  // Fire-and-forget: translations run in parallel, ordered by seq on listener side
   const sendTranslation = useCallback((text: string, lang: string) => {
     const seq = ++seqRef.current
     setSentCount(n => n + 1)
     ;(async () => {
       try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 8000)
+        const ctrl = new AbortController()
+        const t = setTimeout(() => ctrl.abort(), 8000)
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, sourceLang: lang }),
-          signal: controller.signal,
+          signal: ctrl.signal,
         })
-        clearTimeout(timer)
+        clearTimeout(t)
         if (!res.ok) return
-        const t: Translations = await res.json()
-        channelRef.current?.send({ type: 'broadcast', event: 'text', payload: { ...t, seq } })
-      } catch { /* timeout or network error — skip this chunk, don't block */ }
+        const data: Translations = await res.json()
+        channelRef.current?.send({ type: 'broadcast', event: 'text', payload: { ...data, seq } })
+      } catch { /* timeout / network error — skip, don't block */ }
     })()
   }, [])
 
-  // Creates a fresh SpeechRecognition instance every time — most reliable restart strategy
   const startSession = useCallback(() => {
     if (!isActiveRef.current) return
-
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) return
 
+    const lang = sourceLangRef.current
+    const speechCode = lang === 'ar'
+      ? AR_CODES[arCodeIdxRef.current % AR_CODES.length]
+      : (LANGS.find(l => l.code === lang)?.speechCode ?? 'en-US')
+
     const recog = new SR()
-    recog.continuous = true
+    recog.continuous     = true
     recog.interimResults = true
-    recog.lang = LANGS.find(l => l.code === sourceLangRef.current)?.speechCode ?? 'en-US'
+    recog.lang           = speechCode
 
     recog.onresult = (e) => {
       let interim = ''
@@ -111,42 +115,53 @@ export default function SpeakerPage() {
         const r = e.results[i]
         if (r.isFinal) {
           const text = r[0].transcript.trim()
-          // Skip: empty, 1-word fragments, or exact duplicate of last sent
-          if (text && text.split(/\s+/).length >= 2 && text !== lastTextRef.current) {
+          if (text && text !== lastTextRef.current) {
             lastTextRef.current = text
             sendTranslation(text, sourceLangRef.current)
             setInterimText('')
+            // Also broadcast raw text instantly so listeners see something immediately
+            channelRef.current?.send({
+              type: 'broadcast', event: 'interim',
+              payload: { text, lang: sourceLangRef.current }
+            })
           }
         } else {
           interim += r[0].transcript
         }
       }
-      if (interim) setInterimText(interim)
+      if (interim) {
+        setInterimText(interim)
+        // Stream interim words live to listeners
+        channelRef.current?.send({
+          type: 'broadcast', event: 'interim',
+          payload: { text: interim, lang: sourceLangRef.current }
+        })
+      }
     }
 
     recog.onerror = (e) => {
-      // Only hard-stop on permission errors — everything else lets onend restart
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         isActiveRef.current = false
         setRecording(false)
         setInterimText('')
+        return
       }
+      if (e.error === 'language-not-supported' && lang === 'ar') {
+        // Try next Arabic dialect code
+        arCodeIdxRef.current++
+      }
+      // All other errors: let onend handle restart
     }
 
     recog.onend = () => {
-      // Always restart after a short pause using a FRESH instance
-      if (isActiveRef.current) {
-        restartTimerRef.current = setTimeout(startSession, 300)
-      }
+      // Restart immediately — no delay — fresh instance every time
+      if (isActiveRef.current) startSession()
     }
 
     try {
       recog.start()
     } catch {
-      // Browser busy — retry after a moment
-      if (isActiveRef.current) {
-        restartTimerRef.current = setTimeout(startSession, 600)
-      }
+      if (isActiveRef.current) setTimeout(startSession, 150)
     }
   }, [sendTranslation])
 
@@ -155,14 +170,14 @@ export default function SpeakerPage() {
       alert('Speech recognition requires Chrome or Edge on desktop.')
       return
     }
-    isActiveRef.current = true
+    arCodeIdxRef.current = 0
+    isActiveRef.current  = true
     setRecording(true)
     startSession()
   }
 
   function stopRecording() {
     isActiveRef.current = false
-    if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
     setRecording(false)
     setInterimText('')
   }
@@ -177,12 +192,11 @@ export default function SpeakerPage() {
     <div className="min-h-screen bg-black text-white px-4 py-8">
       <div className="max-w-sm mx-auto space-y-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-black">Live Session</h1>
           <div className="flex items-center gap-2">
-            {recording && (
-              <span className="text-xs text-zinc-500">{sentCount} sent</span>
+            {recording && sentCount > 0 && (
+              <span className="text-xs text-zinc-500">{sentCount} translated</span>
             )}
             {supabase && (
               <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 border border-zinc-800 px-3 py-1.5">
@@ -193,7 +207,6 @@ export default function SpeakerPage() {
           </div>
         </div>
 
-        {/* Language */}
         <div className="flex gap-2">
           {LANGS.map(l => (
             <button
@@ -210,7 +223,12 @@ export default function SpeakerPage() {
           ))}
         </div>
 
-        {/* Mic */}
+        {sourceLang === 'ar' && (
+          <p className="text-xs text-zinc-600 text-center -mt-2">
+            Arabic recognition works best with clear, standard pronunciation (فصحى)
+          </p>
+        )}
+
         <div className="flex flex-col items-center py-6">
           <button
             onClick={recording ? stopRecording : startRecording}
@@ -226,17 +244,19 @@ export default function SpeakerPage() {
           </button>
           <p className="mt-4 text-sm font-medium text-zinc-400">
             {recording
-              ? <span className="flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Live — tap to stop</span>
+              ? <span className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  Live — tap to stop
+                </span>
               : 'Tap to start speaking'}
           </p>
-          <div className="mt-3 min-h-[36px] max-w-xs text-center">
+          <div className="mt-3 min-h-[40px] max-w-xs text-center">
             {interimText && (
-              <p className="text-sm text-zinc-500 italic">{interimText}</p>
+              <p className="text-sm text-zinc-500 italic leading-relaxed">{interimText}</p>
             )}
           </div>
         </div>
 
-        {/* QR */}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-4 text-center">
             Listeners scan to join

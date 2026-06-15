@@ -9,7 +9,7 @@ type Translations = { en: string; ar: string; fr: string }
 type Chunk = Translations & { seq: number }
 
 const LANGS = [
-  { code: 'en', label: 'English', voiceLang: 'en-US', dir: 'ltr' as const },
+  { code: 'en', label: 'English',  voiceLang: 'en-US', dir: 'ltr' as const },
   { code: 'ar', label: 'العربية', voiceLang: 'ar-SA', dir: 'rtl' as const },
   { code: 'fr', label: 'Français', voiceLang: 'fr-FR', dir: 'ltr' as const },
 ]
@@ -30,14 +30,14 @@ export default function ListenPage() {
     if (typeof window === 'undefined') return 'en'
     return localStorage.getItem(STORAGE_KEY) ?? 'en'
   })
-  const [chunks, setChunks] = useState<Chunk[]>([])
-  const [connected, setConnected] = useState(false)
+  const [chunks, setChunks]         = useState<Chunk[]>([])
+  const [interimText, setInterimText] = useState('')   // raw words before translation
+  const [connected, setConnected]   = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(false)
 
-  // Refs so broadcast handler always sees the latest values without re-subscribing
-  const langRef = useRef(lang)
+  const langRef         = useRef(lang)
   const audioEnabledRef = useRef(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const bottomRef       = useRef<HTMLDivElement>(null)
 
   useEffect(() => { langRef.current = lang }, [lang])
   useEffect(() => { audioEnabledRef.current = audioEnabled }, [audioEnabled])
@@ -55,49 +55,45 @@ export default function ListenPage() {
     window.speechSynthesis.speak(utter)
   }
 
-  // Subscribe once per sessionId — lang changes do NOT trigger reconnection
   useEffect(() => {
-    if (!supabase) {
-      setConnected(false)
-      return
-    }
+    if (!supabase) { setConnected(false); return }
 
     const ch = supabase.channel(`session:${sessionId}`)
 
+    // Final translated chunk — add to permanent log
     ch.on('broadcast', { event: 'text' }, ({ payload }: { payload: Chunk }) => {
       if (!payload) return
       setChunks(prev => {
-        // Insert sorted by seq, deduplicate, keep last 200
-        const exists = prev.some(c => c.seq === payload.seq)
-        if (exists) return prev
-        return [...prev, payload]
-          .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
-          .slice(-200)
+        if (prev.some(c => c.seq === payload.seq)) return prev
+        return [...prev, payload].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)).slice(-300)
       })
+      setInterimText('')
       speakText(payload[langRef.current as keyof Translations] ?? '', langRef.current)
     })
 
-    ch.subscribe((status) => {
-      setConnected(status === 'SUBSCRIBED')
+    // Interim — show raw words live while translation is in flight
+    ch.on('broadcast', { event: 'interim' }, ({ payload }: { payload: { text: string; lang: string } }) => {
+      if (!payload?.text) return
+      setInterimText(payload.text)
     })
 
-    return () => { ch.unsubscribe() }
-  }, [sessionId]) // ← only sessionId, NOT lang
+    ch.subscribe((status) => setConnected(status === 'SUBSCRIBED'))
 
-  // Auto-scroll to bottom whenever new chunk arrives
+    return () => { ch.unsubscribe() }
+  }, [sessionId])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chunks])
+  }, [chunks, interimText])
 
   const selectedLang = LANGS.find(l => l.code === lang) ?? LANGS[0]
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
 
-      {/* Top bar — always LTR */}
+      {/* Top bar */}
       <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-md border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          {/* Language selector */}
           <div className="flex gap-1.5">
             {LANGS.map(l => (
               <button
@@ -113,8 +109,6 @@ export default function ListenPage() {
               </button>
             ))}
           </div>
-
-          {/* Audio toggle */}
           <button
             onClick={() => setAudioEnabled(v => !v)}
             className={`rounded-full p-2 transition-colors ${
@@ -126,37 +120,38 @@ export default function ListenPage() {
             {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </button>
         </div>
-
-        {/* Connection dot */}
         <div className="flex items-center justify-center gap-1.5 mt-2">
           <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-          <span className="text-xs text-zinc-500">
-            {connected ? 'Live' : supabase ? 'Connecting…' : 'Setup required'}
-          </span>
+          <span className="text-xs text-zinc-500">{connected ? 'Live' : 'Connecting…'}</span>
         </div>
       </div>
 
-      {/* Text area */}
+      {/* Content */}
       <div
         className="flex-1 overflow-y-auto px-6 py-8 max-w-lg mx-auto w-full"
         dir={selectedLang.dir}
       >
-        {chunks.length === 0 ? (
+        {chunks.length === 0 && !interimText ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <div className="h-3 w-3 rounded-full bg-zinc-700 mb-6 animate-pulse" />
             <p className="text-zinc-400 text-lg font-medium">{WAITING[lang]}</p>
           </div>
         ) : (
-          <p className="text-white text-2xl leading-[1.9] font-normal tracking-wide">
+          <p className="text-2xl leading-[1.9] font-normal tracking-wide">
+            {/* Permanently translated chunks */}
             {chunks.map((chunk, i) => {
               const text = chunk[lang as keyof Translations] ?? ''
-              const isNew = i >= chunks.length - 2
+              const isRecent = i >= chunks.length - 2
               return (
-                <span key={chunk.seq ?? i} className={isNew ? 'text-white' : 'text-zinc-400'}>
+                <span key={chunk.seq ?? i} className={isRecent ? 'text-white' : 'text-zinc-400'}>
                   {text}{' '}
                 </span>
               )
             })}
+            {/* Live interim words — shows instantly before translation */}
+            {interimText && (
+              <span className="text-zinc-500 italic">{interimText}</span>
+            )}
           </p>
         )}
         <div ref={bottomRef} />
