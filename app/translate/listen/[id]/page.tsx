@@ -143,10 +143,11 @@ export default function ListenPage() {
       >
         {chunks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
-            <p className="text-zinc-400 text-xl font-medium">{WAITING[lang]}</p>
+            <div className="h-3 w-3 rounded-full bg-zinc-700 mb-6 animate-pulse" />
+            <p className="text-zinc-400 text-lg font-medium">{WAITING[lang]}</p>
           </div>
         ) : (
-          <p className="text-white text-xl leading-[1.8] font-medium">
+          <p className="text-white text-2xl leading-[1.9] font-normal tracking-wide">
             {chunks.map((chunk, i) => {
               const text = chunk[lang as keyof Translations] ?? ''
               const isNew = i >= chunks.length - 2
