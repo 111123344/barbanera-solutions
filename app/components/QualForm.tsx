@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   ChevronRight,
   ChevronLeft,
   Check,
-  Building2,
+  Car,
   DollarSign,
-  Target,
-  UserCheck,
-  Zap,
+  ClipboardList,
+  Clock,
+  ChevronDown,
 } from "lucide-react";
 import Script from "next/script";
 
@@ -20,17 +20,10 @@ import Script from "next/script";
 // ---------------------------------------------------------------------------
 
 interface FormData {
-  businessName: string;
-  industry: string;
-  monthlyRevenue: string;
-  biggestBottleneck: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  humanCheck: boolean;
-  // honeypot — must stay empty for real humans
-  _hp: string;
-  readyToScale: boolean | null;
+  lookingFor: string;
+  budget: string;
+  details: string;
+  readyWithin48h: boolean | null;
 }
 
 interface QualFormProps {
@@ -53,7 +46,7 @@ declare global {
 
 const CALENDLY_URL = "https://calendly.com/ahmadafiffadel/30min";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 // ---------------------------------------------------------------------------
 // Step metadata
@@ -62,60 +55,48 @@ const TOTAL_STEPS = 5;
 const STEPS = [
   {
     id: 1,
-    icon: Building2,
-    title: "Business Info",
-    question: "Tell us about your business.",
-    hint: "This helps us tailor your strategy call before we even meet.",
+    icon: Car,
+    title: "Intent",
+    question: "What are you looking for today?",
+    hint: "This tells us which specialist on our team should handle your request.",
   },
   {
     id: 2,
     icon: DollarSign,
-    title: "Revenue",
-    question: "What is your current monthly revenue?",
-    hint: "Be honest — this determines which growth system fits you best.",
+    title: "Budget",
+    question: "What is your immediate budget or payout expectation?",
+    hint: "Be honest — it helps us match you with the right inventory or offer.",
   },
   {
     id: 3,
-    icon: Target,
-    title: "Bottleneck",
-    question: "What is your biggest bottleneck to growth right now?",
-    hint: "Be specific — the more detail, the better we can prepare.",
+    icon: ClipboardList,
+    title: "Specifics",
+    question: "Specify the Year, Make, Model, or specific parts you need.",
+    hint: "The more detail you give us, the faster we can source or quote it.",
   },
   {
     id: 4,
-    icon: UserCheck,
-    title: "Contact Details",
-    question: "Where should we send your strategy brief?",
-    hint: "Your info is 100% confidential. We don't do spam.",
-  },
-  {
-    id: 5,
-    icon: Zap,
-    title: "Readiness",
-    question: "Are you ready to scale your lead flow?",
-    hint: "We only take on clients who are ready to move with urgency.",
+    icon: Clock,
+    title: "Timeline",
+    question: "Are you ready to inspect, purchase, or pick up within 48 hours?",
+    hint: "We prioritize serious, ready-to-move buyers and sellers.",
   },
 ] as const;
 
-const REVENUE_OPTIONS = [
-  { value: "under-10k", label: "Under $10k / mo" },
-  { value: "10k-50k", label: "$10k – $50k / mo" },
-  { value: "50k-100k", label: "$50k – $100k / mo" },
-  { value: "100k-plus", label: "$100k+ / mo" },
+const LOOKING_FOR_OPTIONS = [
+  { value: "", label: "Select an option…" },
+  { value: "buy-vehicle", label: "Looking to buy a whole vehicle" },
+  { value: "buy-parts", label: "Looking for specific OEM parts/wheels" },
+  { value: "sell-vehicle", label: "Looking to sell my car for cash" },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-function isValidPhone(phone: string) {
-  // Allow common formats: +1 (514) 000-0000, 5140000000, etc.
-  return /^[\d\s\-\+\(\)]{7,20}$/.test(phone.trim());
-}
+const BUDGET_OPTIONS = [
+  { value: "", label: "Select an option…" },
+  { value: "under-5k", label: "Under $5,000" },
+  { value: "5k-15k", label: "$5,000 - $15,000" },
+  { value: "15k-plus", label: "$15,000+" },
+  { value: "parts-only", label: "Just need parts" },
+];
 
 // ---------------------------------------------------------------------------
 // Step indicator
@@ -144,107 +125,62 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — Business Info
+// Reusable dropdown
 // ---------------------------------------------------------------------------
 
-function BusinessInfoStep({
-  data,
+function StyledSelect({
+  value,
+  options,
   onChange,
 }: {
-  data: Pick<FormData, "businessName" | "industry">;
-  onChange: (k: keyof FormData, v: string) => void;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Business Name
-        </label>
-        <input
-          type="text"
-          value={data.businessName}
-          onChange={(e) => onChange("businessName", e.target.value)}
-          placeholder="e.g. Barbanera Solutions"
-          autoFocus
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-white placeholder-zinc-600 text-sm font-medium focus:border-[#c9a84c] focus:outline-none focus:ring-1 focus:ring-[#c9a84c] transition-colors"
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Industry / Niche
-        </label>
-        <input
-          type="text"
-          value={data.industry}
-          onChange={(e) => onChange("industry", e.target.value)}
-          placeholder="e.g. Real Estate, Coaching, SaaS, Home Services…"
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-white placeholder-zinc-600 text-sm font-medium focus:border-[#c9a84c] focus:outline-none focus:ring-1 focus:ring-[#c9a84c] transition-colors"
-        />
-      </div>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus
+        className="w-full appearance-none rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 pr-10 text-sm font-medium text-white focus:border-[#c9a84c] focus:outline-none focus:ring-1 focus:ring-[#c9a84c] transition-colors"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value} disabled={opt.value === ""}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Revenue
+// Step 3 — Specifics
 // ---------------------------------------------------------------------------
 
-function RevenueStep({
+function DetailsStep({
   value,
   onChange,
 }: {
   value: string;
   onChange: (v: string) => void;
 }) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {REVENUE_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`relative group rounded-xl border p-4 text-left transition-all duration-200 ${
-            value === opt.value
-              ? "border-[#c9a84c] bg-[#c9a84c]/10 text-white"
-              : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
-          }`}
-        >
-          {value === opt.value && (
-            <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#c9a84c]">
-              <Check className="h-3 w-3 text-black" />
-            </span>
-          )}
-          <span className="text-sm font-semibold leading-snug">{opt.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 3 — Bottleneck
-// ---------------------------------------------------------------------------
-
-function BottleneckStep({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const remaining = Math.max(0, 20 - value.trim().length);
+  const remaining = Math.max(0, 5 - value.trim().length);
   return (
     <div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="e.g. We struggle to book enough qualified discovery calls. Our outreach is inconsistent and we lose leads because we can't follow up fast enough..."
+        placeholder="e.g. 2017-2020 Honda Civic Si, clean title, under 100k km — or OEM 18in TRD wheels for a Tacoma..."
         rows={5}
+        autoFocus
         className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-white placeholder-zinc-600 text-sm leading-relaxed focus:border-[#c9a84c] focus:outline-none focus:ring-1 focus:ring-[#c9a84c] transition-colors"
       />
       {remaining > 0 && (
         <p className="mt-1.5 text-xs text-zinc-600">
-          {remaining} more characters to continue
+          A few more details will help us source the right match.
         </p>
       )}
     </div>
@@ -252,127 +188,10 @@ function BottleneckStep({
 }
 
 // ---------------------------------------------------------------------------
-// Step 4 — Contact + Bot check
+// Step 4 — Readiness toggle
 // ---------------------------------------------------------------------------
 
-function ContactStep({
-  data,
-  onChange,
-  errors,
-}: {
-  data: Pick<FormData, "fullName" | "email" | "phone" | "humanCheck" | "_hp">;
-  onChange: (k: keyof FormData, v: string | boolean) => void;
-  errors: Partial<Record<keyof FormData, string>>;
-}) {
-  return (
-    <div className="space-y-4">
-      {/* Honeypot — visually hidden, must stay empty */}
-      <input
-        type="text"
-        name="website"
-        value={data._hp}
-        onChange={(e) => onChange("_hp", e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-        autoComplete="off"
-        className="absolute opacity-0 h-0 w-0 pointer-events-none"
-      />
-
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Full Name
-        </label>
-        <input
-          type="text"
-          value={data.fullName}
-          onChange={(e) => onChange("fullName", e.target.value)}
-          placeholder="Ahmad Fadel"
-          autoComplete="name"
-          className={`w-full rounded-xl border bg-zinc-900 px-4 py-3.5 text-white placeholder-zinc-600 text-sm font-medium focus:outline-none focus:ring-1 transition-colors ${
-            errors.fullName
-              ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-              : "border-zinc-700 focus:border-[#c9a84c] focus:ring-[#c9a84c]"
-          }`}
-        />
-        {errors.fullName && (
-          <p className="mt-1 text-xs text-red-400">{errors.fullName}</p>
-        )}
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Business Email
-        </label>
-        <input
-          type="email"
-          value={data.email}
-          onChange={(e) => onChange("email", e.target.value)}
-          placeholder="you@company.com"
-          autoComplete="email"
-          className={`w-full rounded-xl border bg-zinc-900 px-4 py-3.5 text-white placeholder-zinc-600 text-sm font-medium focus:outline-none focus:ring-1 transition-colors ${
-            errors.email
-              ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-              : "border-zinc-700 focus:border-[#c9a84c] focus:ring-[#c9a84c]"
-          }`}
-        />
-        {errors.email && (
-          <p className="mt-1 text-xs text-red-400">{errors.email}</p>
-        )}
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Phone Number
-        </label>
-        <input
-          type="tel"
-          value={data.phone}
-          onChange={(e) => onChange("phone", e.target.value)}
-          placeholder="+1 (438) 935-1711"
-          autoComplete="tel"
-          className={`w-full rounded-xl border bg-zinc-900 px-4 py-3.5 text-white placeholder-zinc-600 text-sm font-medium focus:outline-none focus:ring-1 transition-colors ${
-            errors.phone
-              ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-              : "border-zinc-700 focus:border-[#c9a84c] focus:ring-[#c9a84c]"
-          }`}
-        />
-        {errors.phone && (
-          <p className="mt-1 text-xs text-red-400">{errors.phone}</p>
-        )}
-      </div>
-
-      {/* Human checkbox */}
-      <button
-        type="button"
-        onClick={() => onChange("humanCheck", !data.humanCheck)}
-        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 ${
-          data.humanCheck
-            ? "border-[#c9a84c]/50 bg-[#c9a84c]/10"
-            : "border-zinc-700 bg-zinc-900 hover:border-zinc-600"
-        }`}
-      >
-        <div
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors ${
-            data.humanCheck
-              ? "border-[#c9a84c] bg-[#c9a84c]"
-              : "border-zinc-600 bg-transparent"
-          }`}
-        >
-          {data.humanCheck && <Check className="h-3 w-3 text-black" />}
-        </div>
-        <span className="text-sm text-zinc-300">
-          I confirm I am a real human (not a bot)
-        </span>
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 5 — Readiness
-// ---------------------------------------------------------------------------
-
-function ReadinessStep({
+function ReadinessToggle({
   value,
   onChange,
 }: {
@@ -382,18 +201,8 @@ function ReadinessStep({
   return (
     <div className="grid grid-cols-2 gap-4">
       {[
-        {
-          val: true,
-          label: "Yes, I'm ready",
-          sub: "Let's build immediately",
-          accent: true,
-        },
-        {
-          val: false,
-          label: "Not quite yet",
-          sub: "Just exploring for now",
-          accent: false,
-        },
+        { val: true, label: "Yes", sub: "Ready within 48 hours", accent: true },
+        { val: false, label: "No", sub: "Just browsing for now", accent: false },
       ].map((opt) => (
         <button
           key={String(opt.val)}
@@ -439,30 +248,23 @@ function ReadinessStep({
 // ---------------------------------------------------------------------------
 
 const EMPTY_FORM: FormData = {
-  businessName: "",
-  industry: "",
-  monthlyRevenue: "",
-  biggestBottleneck: "",
-  fullName: "",
-  email: "",
-  phone: "",
-  humanCheck: false,
-  _hp: "",
-  readyToScale: null,
+  lookingFor: "",
+  budget: "",
+  details: "",
+  readyWithin48h: null,
 };
 
 export default function QualForm({ isOpen, onClose }: QualFormProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
-  const [contactErrors, setContactErrors] = useState<
-    Partial<Record<keyof FormData, string>>
-  >({});
 
   // Lock scroll
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   // Reset on close
@@ -472,7 +274,6 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
         setStep(1);
         setDirection(1);
         setFormData(EMPTY_FORM);
-        setContactErrors({});
       }, 400);
       return () => clearTimeout(t);
     }
@@ -491,58 +292,26 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
     []
   );
 
-  // Validate step 4 contact fields and return errors object
-  const validateContact = (): Partial<Record<keyof FormData, string>> => {
-    const errs: Partial<Record<keyof FormData, string>> = {};
-    if (!formData.fullName.trim()) errs.fullName = "Please enter your full name.";
-    if (!formData.email.trim()) {
-      errs.email = "Please enter your email.";
-    } else if (!isValidEmail(formData.email)) {
-      errs.email = "Please enter a valid email address.";
-    }
-    if (!formData.phone.trim()) {
-      errs.phone = "Please enter your phone number.";
-    } else if (!isValidPhone(formData.phone)) {
-      errs.phone = "Please enter a valid phone number.";
-    }
-    return errs;
-  };
-
   const canAdvance = (): boolean => {
     switch (step) {
       case 1:
-        return formData.businessName.trim().length > 1 && formData.industry.trim().length > 1;
+        return formData.lookingFor !== "";
       case 2:
-        return formData.monthlyRevenue !== "";
+        return formData.budget !== "";
       case 3:
-        return formData.biggestBottleneck.trim().length >= 20;
-      case 4: {
-        // Honeypot must be empty; all fields valid; human checked
-        if (formData._hp !== "") return false;
-        const errs = validateContact();
-        return Object.keys(errs).length === 0 && formData.humanCheck;
-      }
-      case 5:
-        return formData.readyToScale !== null;
+        return formData.details.trim().length >= 5;
+      case 4:
+        return formData.readyWithin48h !== null;
       default:
         return false;
     }
   };
 
   const handleNext = () => {
-    // Extra inline validation pass on step 4 to show field errors on attempt
-    if (step === 4) {
-      const errs = validateContact();
-      if (Object.keys(errs).length > 0 || !formData.humanCheck || formData._hp !== "") {
-        setContactErrors(errs);
-        return;
-      }
-      setContactErrors({});
-    }
-
     if (!canAdvance()) return;
 
     if (step === TOTAL_STEPS) {
+      // Calendly handoff — fires immediately on Q4 completion
       onClose();
       setTimeout(openCalendly, 350);
       return;
@@ -568,13 +337,11 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
     exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
   };
 
-  // Dynamic min-height per step to prevent layout jump
   const stepHeights: Record<number, number> = {
-    1: 200,
-    2: 200,
-    3: 220,
-    4: 330,
-    5: 180,
+    1: 140,
+    2: 140,
+    3: 200,
+    4: 180,
   };
 
   return (
@@ -613,7 +380,6 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 overflow-hidden">
-
                 {/* Gold top bar */}
                 <div className="h-1 w-full bg-gradient-to-r from-[#c9a84c] via-[#e8c97a] to-[#c9a84c]" />
 
@@ -621,10 +387,10 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
                 <div className="flex items-center justify-between px-6 pt-6 pb-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a84c]">
-                      Strategy Call Qualifier
+                      Pre-Qualification & Sourcing
                     </p>
                     <h2 className="mt-1 text-xl font-bold text-white">
-                      Let&apos;s See If We&apos;re a Fit
+                      Let&apos;s Find Your Match
                     </h2>
                   </div>
                   <button
@@ -644,7 +410,7 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
                 {/* Step content */}
                 <div
                   className="relative overflow-hidden px-6 pb-6"
-                  style={{ minHeight: stepHeights[step] ?? 220 }}
+                  style={{ minHeight: stepHeights[step] ?? 180 }}
                 >
                   <AnimatePresence mode="wait" custom={direction}>
                     <motion.div
@@ -673,40 +439,29 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
 
                       {/* Dynamic inputs */}
                       {step === 1 && (
-                        <BusinessInfoStep
-                          data={{ businessName: formData.businessName, industry: formData.industry }}
-                          onChange={setField}
+                        <StyledSelect
+                          value={formData.lookingFor}
+                          options={LOOKING_FOR_OPTIONS}
+                          onChange={(v) => setField("lookingFor", v)}
                         />
                       )}
                       {step === 2 && (
-                        <RevenueStep
-                          value={formData.monthlyRevenue}
-                          onChange={(v) => setField("monthlyRevenue", v)}
+                        <StyledSelect
+                          value={formData.budget}
+                          options={BUDGET_OPTIONS}
+                          onChange={(v) => setField("budget", v)}
                         />
                       )}
                       {step === 3 && (
-                        <BottleneckStep
-                          value={formData.biggestBottleneck}
-                          onChange={(v) => setField("biggestBottleneck", v)}
+                        <DetailsStep
+                          value={formData.details}
+                          onChange={(v) => setField("details", v)}
                         />
                       )}
                       {step === 4 && (
-                        <ContactStep
-                          data={{
-                            fullName: formData.fullName,
-                            email: formData.email,
-                            phone: formData.phone,
-                            humanCheck: formData.humanCheck,
-                            _hp: formData._hp,
-                          }}
-                          onChange={setField}
-                          errors={contactErrors}
-                        />
-                      )}
-                      {step === 5 && (
-                        <ReadinessStep
-                          value={formData.readyToScale}
-                          onChange={(v) => setField("readyToScale", v)}
+                        <ReadinessToggle
+                          value={formData.readyWithin48h}
+                          onChange={(v) => setField("readyWithin48h", v)}
                         />
                       )}
                     </motion.div>
@@ -737,8 +492,8 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
                   >
                     {step === TOTAL_STEPS ? (
                       <>
-                        Book My Strategy Call
-                        <Zap className="h-4 w-4" />
+                        Schedule My Pickup
+                        <ChevronRight className="h-4 w-4" />
                       </>
                     ) : (
                       <>
@@ -751,7 +506,7 @@ export default function QualForm({ isOpen, onClose }: QualFormProps) {
 
                 {/* Trust line */}
                 <p className="border-t border-zinc-900 px-6 py-3 text-center text-xs text-zinc-600">
-                  🔒 Your answers are confidential and used solely to prepare your strategy call.
+                  🔒 Your answers are confidential and used solely to match you with our inventory or sourcing team.
                 </p>
               </div>
             </motion.div>

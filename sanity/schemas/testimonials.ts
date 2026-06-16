@@ -13,8 +13,9 @@ export const testimonials = defineType({
     }),
     defineField({
       name: "clientTitle",
-      title: "Client Title / Company",
+      title: "Vehicle / Parts Purchased",
       type: "string",
+      description: 'E.g. "2018 Audi A4 Quattro" or "OEM 18in Wheel & Tire Set"',
       validation: (Rule) => Rule.required(),
     }),
     defineField({
@@ -34,13 +35,20 @@ export const testimonials = defineType({
       name: "result",
       title: "Quantified Result",
       type: "string",
-      description: 'E.g. "12 booked calls in 21 days" or "$180k pipeline added"',
+      description: 'E.g. "Picked up within 24 hours of inquiry" or "Saved $3,200 vs dealership pricing"',
       validation: (Rule) => Rule.required(),
     }),
     defineField({
-      name: "industry",
-      title: "Industry",
+      name: "transactionType",
+      title: "Transaction Type",
       type: "string",
+      options: {
+        list: [
+          { title: "Vehicle Purchase", value: "vehicle" },
+          { title: "Parts / Wheels Purchase", value: "parts" },
+          { title: "Sold Their Vehicle", value: "sold-vehicle" },
+        ],
+      },
     }),
     defineField({
       name: "rating",

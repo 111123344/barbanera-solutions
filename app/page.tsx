@@ -3,19 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import {
-  BrainCircuit,
-  TrendingUp,
-  Target,
-  Phone,
-  MapPin,
-  ArrowRight,
-  Calendar,
-  Cog,
-  Rocket,
+  Car,
+  Disc,
+  Wrench,
   ShieldCheck,
-  Languages,
+  MapPin,
+  Gauge,
+  Phone,
+  ArrowRight,
   ChevronDown,
-  Star,
+  Languages,
 } from "lucide-react";
 import QualForm from "./components/QualForm";
 import WhatsAppButton from "./components/WhatsAppButton";
@@ -80,7 +77,7 @@ function Navbar({ onCTA }: { onCTA: () => void }) {
             Barbanera
           </span>
           <span className="text-xl font-black text-[#c9a84c] group-hover:text-[#e8c97a] transition-colors">
-            .
+            .Motors
           </span>
         </a>
 
@@ -106,7 +103,7 @@ function Navbar({ onCTA }: { onCTA: () => void }) {
           onClick={onCTA}
           className="flex items-center gap-2 rounded-full bg-[#c9a84c] px-5 py-2.5 text-sm font-bold text-black hover:bg-[#e8c97a] transition-all duration-200 shadow-lg shadow-[#c9a84c]/20 hover:shadow-[#c9a84c]/40"
         >
-          Book Strategy Call
+          View Live Inventory
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
@@ -150,7 +147,7 @@ function Hero({ onCTA }: { onCTA: () => void }) {
         >
           <span className="h-1.5 w-1.5 rounded-full bg-[#c9a84c] animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c9a84c]">
-            Revenue-Guaranteed · Montreal, QC
+            Mechanically Verified · Montreal, QC
           </span>
         </motion.div>
 
@@ -161,16 +158,12 @@ function Hero({ onCTA }: { onCTA: () => void }) {
           transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="text-5xl font-black leading-[1.08] tracking-tight text-white sm:text-6xl lg:text-7xl"
         >
-          We Will Get You{" "}
-          <span className="relative inline-block">
-            <span className="relative z-10 text-[#c9a84c]">5 Booked</span>
-            <span className="absolute -bottom-1 left-0 right-0 h-[3px] bg-[#c9a84c]/30 rounded-full" />
-          </span>
+          Premium Hand-Picked{" "}
+          <span className="text-[#c9a84c]">Used Vehicles.</span>
           <br />
-          Appointments In{" "}
-          <span className="text-[#c9a84c]">30 Days</span>
+          <span className="text-zinc-300">Zero Dealership Fluff.</span>
           <br />
-          <span className="text-zinc-300">—Or You Don&apos;t Pay.</span>
+          Built to <span className="text-[#c9a84c]">Drive.</span>
         </motion.h1>
 
         {/* Subheadline */}
@@ -180,9 +173,10 @@ function Hero({ onCTA }: { onCTA: () => void }) {
           transition={{ duration: 0.7, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
           className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400"
         >
-          We engineer predictable revenue engines for high-ticket businesses.{" "}
+          We source, inspect, and deliver high-quality used cars, premium wheel
+          setups, and OEM parts across Montreal.{" "}
           <span className="text-zinc-200 font-medium">
-            No fluff, no management fees, just results.
+            Seamless Facebook Marketplace transactions, backed by elite mechanical verification.
           </span>
         </motion.p>
 
@@ -197,14 +191,14 @@ function Hero({ onCTA }: { onCTA: () => void }) {
             onClick={onCTA}
             className="group flex items-center gap-3 rounded-full bg-[#c9a84c] px-8 py-4 text-base font-bold text-black shadow-xl shadow-[#c9a84c]/25 hover:bg-[#e8c97a] hover:shadow-[#c9a84c]/40 transition-all duration-200"
           >
-            Book Your 10-Minute Strategy Call
+            Secure Your Vehicle / Request Parts
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </button>
           <a
             href="#how-we-work"
             className="flex items-center gap-2 rounded-full border border-zinc-700 px-7 py-4 text-base font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white transition-all duration-200"
           >
-            View Our Methodology
+            Browse Current Fleet & Parts
             <ChevronDown className="h-4 w-4" />
           </a>
         </motion.div>
@@ -219,23 +213,13 @@ function Hero({ onCTA }: { onCTA: () => void }) {
           <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
             <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-              Revenue-Guaranteed
+              150-Point Multi-Point Inspected Used Fleet
             </span>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-400/10 px-4 py-2">
-            <Languages className="h-4 w-4 text-blue-400" />
+            <MapPin className="h-4 w-4 text-blue-400" />
             <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
-              Bilingual EN/FR Operations
-            </span>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2">
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 text-[#c9a84c] fill-[#c9a84c]" />
-              ))}
-            </div>
-            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              100% Client Satisfaction
+              Bilingual EN/FR · Montreal-Wide Delivery
             </span>
           </div>
         </motion.div>
@@ -267,32 +251,16 @@ function Hero({ onCTA }: { onCTA: () => void }) {
 
 const SERVICES = [
   {
-    icon: BrainCircuit,
-    title: "AI Receptionist",
-    tagline: "24/7 Automated Qualification",
+    icon: Car,
+    title: "Fully Verified Whole Vehicles",
+    tagline: "Hand-Selected. Clean Title. Certified.",
     description:
-      "Never lose a lead again. Our AI receptionist engages and qualifies prospects around the clock — with a voice so natural, they won't know it's not human.",
+      "Every vehicle in our fleet is hand-selected, clean-titled, and mechanically certified before it ever reaches you. No surprises, no hidden damage history.",
     bullets: [
-      "Fully bilingual — fluent in French & English",
-      "Ultra-realistic, conversational human voice",
-      "24/7 automated appointment booking",
-      "Never misses a call, zero hold times",
-    ],
-    gradient: "from-violet-500/10 to-purple-500/5",
-    accentColor: "text-violet-400",
-    borderHover: "hover:border-violet-500/40",
-  },
-  {
-    icon: TrendingUp,
-    title: "Performance Lead Gen",
-    tagline: "Pure Client Acquisition",
-    description:
-      "We engineer a dedicated, multi-channel acquisition system that funnels high-intent prospects directly into your pipeline. You don't have to manage campaigns or touch the tech—we deliver the qualified calls.",
-    bullets: [
-      "Multi-channel automated outreach systems",
-      '100% "Done-For-You" pipeline management',
-      "Pre-qualified, high-ticket prospect targeting",
-      "Direct-to-calendar exclusive appointments",
+      "Hand-selected, clean-title used cars only",
+      "150-point multi-point mechanical inspection",
+      "Full vehicle history and condition disclosure",
+      "Ready for immediate pickup across Montreal",
     ],
     gradient: "from-[#c9a84c]/10 to-amber-500/5",
     accentColor: "text-[#c9a84c]",
@@ -300,20 +268,36 @@ const SERVICES = [
     featured: true,
   },
   {
-    icon: Target,
-    title: "AI Consulting & Integration",
-    tagline: "Intelligent Business Automation",
+    icon: Disc,
+    title: "Premium Wheels & Fitment",
+    tagline: "Hard-to-Find Sets. Perfect Fitment.",
     description:
-      "We don't just give advice; we build and deploy bespoke AI infrastructure into your business. We automate the heavy lifting so you can scale your operations without scaling your headcount.",
+      "Sourcing rare and hard-to-find alloy wheel sets, high-tread tires, and premium fitment packages — matched precisely to your vehicle's specs.",
     bullets: [
-      "Custom AI infrastructure tailored to your exact operations",
-      "Seamless CRM and internal systems integration",
-      "Autonomous lead-routing and data enrichment",
-      "Scalable automation to eliminate manual overhead",
+      "Hard-to-find OEM and aftermarket alloy sets",
+      "High-tread, low-mileage tire packages",
+      "Fitment-verified before sale",
+      "Direct Marketplace and local pickup",
     ],
     gradient: "from-cyan-500/10 to-blue-500/5",
     accentColor: "text-cyan-400",
     borderHover: "hover:border-cyan-500/40",
+  },
+  {
+    icon: Wrench,
+    title: "OEM & Performance Parts",
+    tagline: "Engineered Sourcing. Exact Match.",
+    description:
+      "Need a specific mechanical component or body panel? We engineer the sourcing process to track down the exact OEM or performance part you need.",
+    bullets: [
+      "Targeted sourcing for mechanical components",
+      "OEM and performance body panels",
+      "Verified part numbers and compatibility",
+      "Fast turnaround on hard-to-find requests",
+    ],
+    gradient: "from-violet-500/10 to-purple-500/5",
+    accentColor: "text-violet-400",
+    borderHover: "hover:border-violet-500/40",
   },
 ];
 
@@ -326,16 +310,16 @@ function Services({ onCTA }: { onCTA: () => void }) {
       <div className="mx-auto max-w-6xl">
         <FadeUp className="mb-16 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a84c]">
-            What We Build
+            What We Source
           </p>
           <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-            Three Systems.
+            Three Lanes.
             <br />
-            <span className="text-zinc-400">One Revenue Engine.</span>
+            <span className="text-zinc-400">One Trusted Showroom.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-zinc-500">
-            Every engagement is custom-engineered around your business. We don&apos;t
-            sell packages — we build systems.
+            Whether you need a whole vehicle, a wheel setup, or a specific part —
+            we source it, verify it, and get it to you fast.
           </p>
         </FadeUp>
 
@@ -351,11 +335,11 @@ function Services({ onCTA }: { onCTA: () => void }) {
                 >
                   {svc.featured && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#c9a84c] px-4 py-0.5 text-[11px] font-bold uppercase tracking-widest text-black">
-                      Most Popular
+                      Core Offering
                     </span>
                   )}
 
-                  <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900`}>
+                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900">
                     <Icon className={`h-6 w-6 ${svc.accentColor}`} />
                   </div>
 
@@ -404,12 +388,12 @@ function Services({ onCTA }: { onCTA: () => void }) {
 const STEPS = [
   {
     number: "01",
-    icon: Calendar,
-    title: "Discovery",
-    subtitle: "The 10-Min Call",
+    icon: Gauge,
+    title: "The Sourcing & Inspection",
+    subtitle: "How We Locate & Test",
     description:
-      "We start with a focused 10-minute strategy call to audit your current lead flow, understand your offer, and identify the fastest path to 5+ booked appointments. No fluff — just precision diagnosis.",
-    detail: "You leave with a clear revenue gap analysis and a proposed system architecture.",
+      "We hunt down whole vehicles, wheel sets, and components across Marketplace and local networks, then run every find through a rigorous 150-point mechanical inspection.",
+    detail: "You only ever see inventory that's already passed our verification process.",
     color: "from-[#c9a84c]/20 to-transparent",
     iconBg: "bg-[#c9a84c]/15 border-[#c9a84c]/30",
     iconColor: "text-[#c9a84c]",
@@ -417,12 +401,12 @@ const STEPS = [
   },
   {
     number: "02",
-    icon: Cog,
-    title: "System Engineering",
-    subtitle: "Building the Automated Engine",
+    icon: ShieldCheck,
+    title: "Digital Showroom Lock-In",
+    subtitle: "Quick Qualification",
     description:
-      "Our team builds your custom revenue engine — AI receptionist, lead qualification workflows, outreach sequences, and conversion infrastructure — in 7 business days.",
-    detail: "You get a fully operational system tested against your market before a single dollar is spent on traffic.",
+      "A fast pre-qualification survey confirms what you need and your timeline, then locks you into the right vehicle or parts package before someone else does.",
+    detail: "Complete the 4-step survey and we schedule your viewing or pickup directly.",
     color: "from-violet-500/20 to-transparent",
     iconBg: "bg-violet-500/15 border-violet-500/30",
     iconColor: "text-violet-400",
@@ -430,12 +414,12 @@ const STEPS = [
   },
   {
     number: "03",
-    icon: Rocket,
-    title: "Scaling",
-    subtitle: "Driving High-Intent Traffic",
+    icon: MapPin,
+    title: "Rapid Delivery & Handover",
+    subtitle: "Local Meetups & Title Transfers",
     description:
-      "With the system live, we turn on targeted acquisition — paid media, cold outbound, or both — driving only pre-qualified, high-intent prospects directly into your calendar.",
-    detail: "Week 1: system live. Week 2: traffic on. Week 4: review your 5 booked appointments.",
+      "Immediate Facebook Marketplace or local meetups across Montreal, with clean title transfers and a fully transparent handoff — no dealership red tape.",
+    detail: "Most deals close and hand off within 48 hours of confirmation.",
     color: "from-emerald-500/20 to-transparent",
     iconBg: "bg-emerald-500/15 border-emerald-500/30",
     iconColor: "text-emerald-400",
@@ -454,10 +438,10 @@ function HowWeWork({ onCTA }: { onCTA: () => void }) {
             Our Process
           </p>
           <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-            From Zero to
+            From Marketplace Listing
             <br />
-            <span className="text-[#c9a84c]">5 Booked Calls</span>
-            <span className="text-zinc-400"> in 30 Days.</span>
+            <span className="text-[#c9a84c]">to Your Driveway</span>
+            <span className="text-zinc-400"> in 48 Hours.</span>
           </h2>
         </FadeUp>
 
@@ -526,20 +510,20 @@ function HowWeWork({ onCTA }: { onCTA: () => void }) {
         <FadeUp delay={0.2}>
           <div className="mt-20 rounded-2xl border border-[#c9a84c]/20 bg-gradient-to-br from-[#c9a84c]/8 to-transparent p-10 text-center">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#c9a84c]">
-              Ready to Start?
+              Ready to Move?
             </p>
             <h3 className="mb-4 text-3xl font-black text-white">
-              Your first 5 appointments are guaranteed.
+              Your vehicle or parts package is waiting.
             </h3>
             <p className="mx-auto mb-8 max-w-lg text-base text-zinc-400">
-              If we don&apos;t deliver 5 booked calls in your first 30 days, you pay nothing.
-              Zero risk. Pure upside.
+              Complete the quick pre-qualification survey and we&apos;ll lock in
+              your viewing or pickup time immediately.
             </p>
             <button
               onClick={onCTA}
               className="inline-flex items-center gap-3 rounded-full bg-[#c9a84c] px-8 py-4 text-base font-bold text-black shadow-xl shadow-[#c9a84c]/25 hover:bg-[#e8c97a] hover:shadow-[#c9a84c]/40 transition-all duration-200"
             >
-              Start My 30-Day Guarantee
+              Secure Your Vehicle / Request Parts
               <ArrowRight className="h-5 w-5" />
             </button>
           </div>
@@ -565,15 +549,16 @@ function Footer({ onCTA }: { onCTA: () => void }) {
           <div>
             <a href="#" className="group inline-flex items-center gap-1 mb-4">
               <span className="text-2xl font-black text-white">Barbanera</span>
-              <span className="text-2xl font-black text-[#c9a84c]">.</span>
+              <span className="text-2xl font-black text-[#c9a84c]">.Motors</span>
             </a>
             <p className="text-sm text-zinc-500 leading-relaxed max-w-xs">
-              We engineer predictable revenue engines for high-ticket businesses. Montreal-based. Results-guaranteed.
+              Premium hand-picked used vehicles, wheels, and OEM parts. Sourced,
+              inspected, and delivered across Montreal.
             </p>
             <div className="mt-6 flex gap-3">
               <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-[11px] font-semibold text-emerald-400">Revenue-Guaranteed</span>
+                <span className="text-[11px] font-semibold text-emerald-400">150-Point Inspected</span>
               </div>
               <div className="flex items-center gap-1.5 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1.5">
                 <Languages className="h-3.5 w-3.5 text-blue-400" />
@@ -604,7 +589,7 @@ function Footer({ onCTA }: { onCTA: () => void }) {
               onClick={onCTA}
               className="mt-6 flex items-center gap-2 rounded-full bg-[#c9a84c] px-5 py-2.5 text-sm font-bold text-black hover:bg-[#e8c97a] transition-colors"
             >
-              Book Strategy Call
+              View Live Inventory
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -618,7 +603,7 @@ function Footer({ onCTA }: { onCTA: () => void }) {
               {[
                 { label: "Services", href: "#services" },
                 { label: "How We Work", href: "#how-we-work" },
-                { label: "Book a Call", href: "#", onClick: onCTA },
+                { label: "Request Inventory", href: "#", onClick: onCTA },
               ].map((link) => (
                 <a
                   key={link.label}
@@ -636,7 +621,7 @@ function Footer({ onCTA }: { onCTA: () => void }) {
         {/* Bottom bar */}
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-zinc-800 pt-8 sm:flex-row">
           <p className="text-xs text-zinc-600">
-            © {new Date().getFullYear()} Barbanera Solutions. All rights reserved.
+            © {new Date().getFullYear()} Barbanera Motors. All rights reserved.
           </p>
           <div className="flex gap-6 text-xs text-zinc-600">
             <a href="#" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>

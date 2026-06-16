@@ -9,21 +9,21 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Barbanera Solutions — 5 Booked Appointments in 30 Days or You Don't Pay",
+  title: "Barbanera Motors — Premium Hand-Picked Used Vehicles, Wheels & OEM Parts",
   description:
-    "We engineer predictable revenue engines for high-ticket businesses in Montreal and across North America. AI Receptionists, Performance Lead Gen, Revenue Strategy.",
+    "We source, inspect, and deliver high-quality used cars, premium wheel setups, and OEM parts across Montreal. Seamless Facebook Marketplace transactions, backed by elite mechanical verification.",
   keywords: [
-    "lead generation Montreal",
-    "AI receptionist",
-    "revenue strategy",
-    "appointment setting",
-    "high-ticket sales",
-    "Barbanera Solutions",
+    "used cars Montreal",
+    "OEM parts Montreal",
+    "premium wheels",
+    "car flipping",
+    "Facebook Marketplace cars",
+    "Barbanera Motors",
   ],
   openGraph: {
-    title: "Barbanera Solutions — Revenue-Guaranteed Lead Generation",
+    title: "Barbanera Motors — Zero Dealership Fluff. Built to Drive.",
     description:
-      "5 booked appointments in 30 days or you don't pay. Bilingual EN/FR operations.",
+      "Hand-picked used vehicles, premium wheels, and OEM parts. Mechanically verified. Montreal-wide delivery.",
     type: "website",
     locale: "en_CA",
   },

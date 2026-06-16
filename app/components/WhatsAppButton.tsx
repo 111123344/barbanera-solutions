@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 
 const WHATSAPP_NUMBER = "14389351711";
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=Hi%20Barbanera%20Solutions!%20I%27d%20like%20to%20learn%20more%20about%20your%20services.`;
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=Hi%20Barbanera%20Motors!%20I%27m%20interested%20in%20a%20vehicle%2Fparts%20listing%20on%20Marketplace.`;
 
 export default function WhatsAppButton() {
   return (
